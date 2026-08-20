@@ -17,10 +17,14 @@
 
 ## 它做什么
 
-- **方案B（默认，`voice: "user"`）**——回答者叙述："我"/"I" = 被问的人，"你"/"You" = AI。
-- **方案A（`voice: "ai"`）**——AI 叙述："我"/"I" = AI，"你"/"You" = 被问的人。
+规则把工具的字段分成两组：
 
-规则同时绑定**中文（我/你）**和**英文（I/You）**人称，**只在 ask_user_question 这一个工具内生效**（普通回复、其它工具完全不受影响），并且**只在确实用到人称时才适用**——不强迫本来用不到"我"/"你"的问题或选项硬塞人称。
+- **question（问题）和 header（标题）**——**两套方案都一样**，固定从 AI 视角写："我"/"I" = AI，"你"/"You" = 被问的人（用户）。
+- **label（选项标签）和 description（选项描述）**——跟着所选方案走：
+  - **方案B（默认，`voice: "user"`）**——回答者叙述："我"/"I" = 被问的人，"你"/"You" = AI。
+  - **方案A（`voice: "ai"`）**——AI 叙述："我"/"I" = AI，"你"/"You" = 被问的人。
+
+规则文本为**纯英文（零中文字符）**——**绝不会让英文回复里泄漏出汉字**；对任何语言的会话都生效（模型会把代词本地化成会话语言：英文用 I/You，中文用我/你）。规则**只在 ask_user_question 这一个工具内生效**（普通回复、其它工具完全不受影响），并且**只在确实用到人称时才适用**——不强迫本来用不到人称的问题或选项硬塞。
 
 ## 原理
 
@@ -38,7 +42,7 @@ DSH 每次发模型请求前执行 `SystemPrompt.assemble()`，把拼好的提�
 dsh plugin --profile <profile> add "github:TellToday/dsh-narrative-voice#main"
 ```
 
-- `#main` 跟随最新提交；要固定版本用 `#v0.6.0`。
+- `#main` 跟随最新提交；要固定版本用 `#v0.7.0`。
 - 装完要**重启该 profile 的进程**（web profile 就是 `dsh web`）。
 
 等效的其它写法：
@@ -91,7 +95,7 @@ dsh-narrative-voice/
 ├── lib/index.js          # 插件本体：Config、assemble 监听器、/voice 命令
 ├── cordis.patch.yml      # bundle patch：把插件行插入 host 平面
 ├── test/
-│   ├── functional.mjs    # 隔离功能测试（37 项断言）
+│   ├── functional.mjs    # 隔离功能测试（39 项断言）
 │   └── run-test.ps1      # 直接跑测试（无需安装、无需 junction）
 ├── package.json          # bundle 元数据（dsh.bundle.patch；零依赖）
 ├── LICENSE               # MIT

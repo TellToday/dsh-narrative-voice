@@ -78,9 +78,11 @@ const a1 = makeAssembly();
 await runAssemble(a1);
 const rewritten = qDesc(a1);
 check("description is rewritten (not equal original)", rewritten !== original, rewritten.slice(0, 60) + "…");
-check("rewrite embeds 我/你 pronouns", rewritten.includes("我") && rewritten.includes("你"));
-check("rewrite embeds both 我/你 and I/You", rewritten.includes('"我"') && rewritten.includes('"你"') && rewritten.includes('"I"') && rewritten.includes('"You"'));
-check("rule scopes to pronouns that actually appear (no forced 我/你)", rewritten.includes("does not naturally need them"));
+check("rewrite contains zero CJK characters", !/[\u4E00-\u9FFF]/.test(rewritten));
+check("rewrite embeds I/You binding", rewritten.includes('"I"') && rewritten.includes('"You"'));
+check("rule scopes to pronouns that actually appear (no forced I/You)", rewritten.includes("does not naturally need them"));
+check("rule bans 'the user' third-person reference", rewritten.includes("never call the answerer \"the user\""));
+check("Scheme B: question/header fixed AI mapping (I=AI, You=answerer)", rewritten.includes("question and header from the AI's point of view"));
 check("rewrite mentions the tool-only scope", rewritten.includes("this tool only"));
 check("other tool untouched", a1.tools[1].parameters.x.description === "untouched");
 check("rewrite keeps original purpose text", rewritten.startsWith(original));
@@ -124,17 +126,17 @@ apply(mockCtx, Config({ voice: "ai" }));
 const hook3 = listeners[listeners.length - 1];
 const a5 = makeAssembly();
 await hook3.cb(a5, {}, () => Promise.resolve(a5));
-check("方案A rewrite: 我=I=AI binding present", qDesc(a5).includes('"我"/"I" is the AI'), qDesc(a5).slice(0, 60) + "…");
+check("Scheme A rewrite: uniform AI narration", qDesc(a5).includes("question, header, label, and description from the AI's point of view"), qDesc(a5).slice(0, 60) + "…");
 
 // --- 8. /voice user|ai switches the voice at runtime (command from the last apply) ---
 command.handler({ rawInput: "user" });
 const a6 = makeAssembly();
 await hook3.cb(a6, {}, () => Promise.resolve(a6));
-check("/voice user -> 方案B binding (我/I=answerer)", qDesc(a6).includes('"我"/"I" is the person answering'), qDesc(a6).slice(0, 60) + "…");
+check("/voice user -> Scheme B (options from answerer's view)", qDesc(a6).includes("label and description from the answerer's point of view"), qDesc(a6).slice(0, 60) + "…");
 command.handler({ rawInput: "ai" });
 const a7 = makeAssembly();
 await hook3.cb(a7, {}, () => Promise.resolve(a7));
-check("/voice ai -> 方案A binding (我/I=AI)", qDesc(a7).includes('"我"/"I" is the AI'), qDesc(a7).slice(0, 60) + "…");
+check("/voice ai -> Scheme A (uniform AI narration)", qDesc(a7).includes("question, header, label, and description from the AI's point of view"), qDesc(a7).slice(0, 60) + "…");
 let r4 = command.handler({ rawInput: "" });
 check("/voice (no arg) shows voice + state", r4.kind === "success" && /scheme A/.test(r4.text) && /ON/.test(r4.text), r4.text);
 let r5 = command.handler({ rawInput: "user" });
@@ -157,7 +159,7 @@ const cmd4 = command;
 cmd4.handler({ rawInput: "  USER  " });
 const a8 = makeAssembly();
 await hook4.cb(a8, {}, () => Promise.resolve(a8));
-check("/voice '  USER  ' (case+space) -> 方案B + auto-enable", qDesc(a8).includes('"我"/"I" is the person answering'), qDesc(a8).slice(0, 60) + "…");
+check("/voice '  USER  ' (case+space) -> Scheme B + auto-enable", qDesc(a8).includes("label and description from the answerer's point of view"), qDesc(a8).slice(0, 60) + "…");
 
 // malformed assemblies must not crash and must stay untouched
 const noQ = { tools: [{ name: "ask_user_question" }] };

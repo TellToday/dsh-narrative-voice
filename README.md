@@ -1,6 +1,6 @@
 # dsh-narrative-voice
 
-**English** · [**中文版**](./README.zh-CN.md)
+**English** · [Chinese](./README.zh-CN.md)
 
 A **DSH (DeepSeek Harness) bundle plugin** that keeps the `ask_user_question`
 tool's generated questions and options **pronoun-consistent**. At
@@ -13,31 +13,37 @@ The `ask_user_question` tool asks the human a concise question with a few
 clickable options. Without a fixed rule, the model drifts pronouns *inside a
 single option*:
 
-- a **label** written from the answerer's view ("我自己重启" — "我" = the
-  answerer) paired with a **description** written from the AI's view
-  ("我会指导你如何重启" — "我" = the AI);
-- the word **"用户"** leaking in ("…让你更省心"), third-personing the very
-  person who reads it.
+- a **label** written from the answerer's view ("I'll restart it myself" —
+  "I" = the answerer) paired with a **description** written from the AI's view
+  ("I'll walk you through the restart" — "I" = the AI);
+- the phrase **"the user"** leaking in ("...so the user doesn't have to think"),
+  third-personing the very person who reads it.
 
-One option, two different "我"s. The result is ambiguous and confusing: whose
-action is on offer? whose perspective is "我"?
+One option, two different "I"s. The result is ambiguous and confusing: whose
+action is on offer? whose perspective is "I"?
 
-This plugin fixes it at the **prompt level**: it embeds a fixed
-narrative-voice rule into the tool's own description, so the model composes
-every question, header, label, and description in **one consistent voice**, and
-never calls the answerer "用户".
+This plugin fixes it at the **prompt level**: it embeds a fixed narrative-voice
+rule into the tool's own description, so the model composes every field in one
+consistent voice, and never calls the answerer "the user".
 
 ## What it does
 
-- **方案B (default, `voice: "user"`)** — the answerer narrates: "我"/"I" = the
-  person answering, "你"/"You" = the AI.
-- **方案A (`voice: "ai"`)** — the AI narrates: "我"/"I" = the AI, "你"/"You" =
-  the person answering.
+The rule splits the tool's fields into two groups:
 
-The rule binds both **Chinese (我/你)** and **English (I/You)** pronouns,
+- **Question and header** — always written from the **AI's** point of view, in
+  **both** schemes: "I" = the AI, "You" = the person answering (the user).
+- **Options (label and description)** — follow the selected scheme:
+  - **Scheme B (default, `voice: "user"`)** — the answerer narrates: "I" = the
+    person answering, "You" = the AI.
+  - **Scheme A (`voice: "ai"`)** — the AI narrates: "I" = the AI, "You" = the
+    person answering.
+
+The rule text is **English-only (zero CJK characters)** — it can never leak
+Chinese characters into an English reply. It works in any conversation
+language (the model localizes the pronouns into the conversation's language),
 applies **only inside this tool** (ordinary replies and other tools are never
-touched), and only where such pronouns actually appear — it never forces
-我/你 into a question or option that does not naturally need them.
+touched), and only where such pronouns actually appear — it never forces I/You
+into a question or option that does not naturally need them.
 
 ## How it works
 
@@ -64,7 +70,7 @@ One command, straight from this GitHub repo (**verified**):
 dsh plugin --profile <profile> add "github:TellToday/dsh-narrative-voice#main"
 ```
 
-- `#main` tracks the latest commit; pin a stable version with `#v0.6.0`.
+- `#main` tracks the latest commit; pin a stable release with `#v0.7.0`.
 - Then **restart** the profile's process (for the web profile: `dsh web`).
 
 Alternatives, same effect:
@@ -89,8 +95,8 @@ appends it to `dsh.profile.bundles` as a bundle layer. Uninstall:
 |---|---|
 | `/voice on` | enable the rewrite (effective from the next message) |
 | `/voice off` | disable it (the tool description is restored) |
-| `/voice user` | switch to 方案B (the answerer narrates) and enable |
-| `/voice ai` | switch to 方案A (the AI narrates) and enable |
+| `/voice user` | switch to Scheme B (answerer-narrated options) and enable |
+| `/voice ai` | switch to Scheme A (AI-narrated options) and enable |
 | `/voice` | show current state (on/off + active voice) |
 
 The command is handled host-side by the `commands` service (never by the
@@ -100,7 +106,7 @@ model), so it works instantly — no HMR, no restart.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `voice` | `user` (方案B) | which narrative scheme to use |
+| `voice` | `user` (Scheme B) | which narrative scheme the options follow |
 | `defaultActive` | `true` | enabled right after install |
 
 To change the defaults (instead of using `/voice` at runtime), override the row
@@ -110,7 +116,7 @@ The patch replaces the whole config, so list every key:
 ```yaml
 - id: narrative-voice
   config:
-    voice: user          # user (方案B: the answerer narrates) | ai (方案A: the AI narrates)
+    voice: user          # user (Scheme B) | ai (Scheme A)
     defaultActive: true  # false = start disabled, until /voice on
 ```
 
@@ -124,7 +130,7 @@ dsh-narrative-voice/
 ├── lib/index.js          # plugin body: Config, assemble listener, /voice command
 ├── cordis.patch.yml      # bundle patch: inserts the plugin row into the host plane
 ├── test/
-│   ├── functional.mjs    # isolated functional tests (37 assertions)
+│   ├── functional.mjs    # isolated functional tests (39 assertions)
 │   └── run-test.ps1      # runs the tests directly (no install, no junction)
 ├── package.json          # bundle metadata (dsh.bundle.patch; zero deps)
 ├── LICENSE               # MIT

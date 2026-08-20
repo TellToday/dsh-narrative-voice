@@ -1,6 +1,6 @@
 {
   "name": "@dsh-user/narrative-voice",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "A DSH (DeepSeek Harness) bundle plugin that rewrites the ask_user_question tool description at prompt-assembly time with a fixed narrative-voice rule (default: the answerer narrates), toggled live via the /voice command.",
   "type": "module",
   "main": "lib/index.js",
