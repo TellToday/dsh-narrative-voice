@@ -1,0 +1,18 @@
+# dsh-narrative-voice bundle patch.
+#
+# This bundle mounts the narrative-voice plugin at the HOST plane, beside the
+# prompt registry (system-prompt) and command registry (commands) it uses.
+#
+# The plugin registers a `global: true` listener on the `system-prompt/assemble`
+# waterfall: while active it REWRITES the description of the ask_user_question
+# tool's `questions` parameter at prompt-assembly time. The /voice command
+# flips it live. Ordinary replies and other tools are never touched.
+#
+# The profile's own cordis.patch.yml can override config by id (voice /
+# defaultActive) in a later patch layer.
+- insert:
+    - id: narrative-voice
+      name: '@dsh-user/narrative-voice'
+      config:
+        voice: user
+        defaultActive: true

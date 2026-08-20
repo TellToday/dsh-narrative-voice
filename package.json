@@ -1,0 +1,47 @@
+{
+  "name": "@dsh-user/narrative-voice",
+  "version": "0.5.0",
+  "description": "A DSH (DeepSeek Harness) bundle plugin that rewrites the ask_user_question tool description at prompt-assembly time with a fixed narrative-voice rule (default: the answerer narrates), toggled live via the /voice command.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "cordis",
+    "plugin",
+    "bundle",
+    "prompt-engineering",
+    "ask-user-question"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TellToday/dsh-narrative-voice.git"
+  },
+  "homepage": "https://github.com/TellToday/dsh-narrative-voice#readme",
+  "bugs": {
+    "url": "https://github.com/TellToday/dsh-narrative-voice/issues"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-system-prompt": "^0.1.0-rc.7",
+    "@deepseek-ai/dsh-commands": "^0.1.0-rc.7"
+  },
+  "license": "MIT"
+}
