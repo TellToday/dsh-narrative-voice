@@ -9,7 +9,7 @@
 `ask_user_question` 工具负责向人类问一个简洁的问题，并给出几个可点击的选项。**没有固定规则时，模型会在同一个选项内部漂移人称**：
 
 - **选项标签**用回答者口吻（"我自己重启"——"我"=被问的人），**选项描述**却漂移到 AI 口吻（"我会指导你如何重启"——"我"=AI）；
-- 还会漏出**"用户"**这个词（"…让你更省心"），把正在读这句话的人用第三人称指代。
+- 还会漏出"用户"这个词（"…让你更省心"），把正在读这句话的人用第三人称指代。
 
 同一个选项里出现两个不同的"我"，用户根本分不清：提供动作的是谁？"我"到底是谁的视角？
 
@@ -24,7 +24,17 @@
   - **方案B（默认，`voice: "user"`）**——回答者叙述："我"/"I" = 被问的人，"你"/"You" = AI。
   - **方案A（`voice: "ai"`）**——AI 叙述："我"/"I" = AI，"你"/"You" = 被问的人。
 
-规则文本为**纯英文（零中文字符）**——**绝不会让英文回复里泄漏出汉字**；对任何语言的会话都生效（模型会把代词本地化成会话语言：英文用 I/You，中文用我/你）。规则**只在 ask_user_question 这一个工具内生效**（普通回复、其它工具完全不受影响），并且**只在确实用到人称时才适用**——不强迫本来用不到人称的问题或选项硬塞。
+**为什么这样设计？为什么要把该工具的字段分成两组？**
+
+**question（问题）和 header（标题）——这是 AI 在向用户提问。** 提问的人当然用第一人称："我（AI）想问你（用户）一个问题"。所以这两项固定用 AI 视角：**"我" = AI，"你" = 用户**，两套方案都一样，永远不变——否则问题里冒出指代用户的"我"，读者会以为是用户在自己问自己。
+
+**label（选项标签）和 description（选项描述）——这是用户将要给出的答复**。选项本质上是 AI 预先猜好、替用户写成的回复。但这句答复该用谁的口气说，存在两种合情合理的看法，也就是方案A/B的分野：
+
+- **方案B（回答者叙述）**：用户把选项当成自己亲口打出的回复——第一人称在用户手上，AI 只是把用户想打的字猜好、以选项的形式还给他。所以选项里："我" = 用户（"我重启…"），"你" = AI（"你会指导我…"）。
+
+- **方案A（AI 叙述）**：用户把选项当成 AI 递给自己的一道选择题——就像 AI 在说"我遇到个问题，给你两个选项，你选吧：A 我这样处理，B 我那样处理"。所以选项里："我" = AI（"我帮你处理…"），"你" = 用户。
+
+规则**只在 ask_user_question 这一个工具内生效**（普通回复、其它工具完全不受影响），并且**只在确实用到人称时才适用**——不强迫本来用不到人称的问题或选项硬塞。
 
 ## 原理
 
@@ -42,7 +52,7 @@ DSH 每次发模型请求前执行 `SystemPrompt.assemble()`，把拼好的提�
 dsh plugin --profile <profile> add "github:TellToday/dsh-narrative-voice#main"
 ```
 
-- `#main` 跟随最新提交；要固定版本用 `#v0.7.0`。
+- `#main` 跟随最新提交；
 - 装完要**重启该 profile 的进程**（web profile 就是 `dsh web`）。
 
 等效的其它写法：
@@ -51,7 +61,7 @@ dsh plugin --profile <profile> add "github:TellToday/dsh-narrative-voice#main"
 # 完整 git URL
 dsh plugin --profile <profile> add "git+https://github.com/TellToday/dsh-narrative-voice.git"
 # 或用本地目录（开发用）
-dsh plugin --profile <profile> add "E:\path\to\dsh-narrative-voice"
+dsh plugin --profile <profile> add "C:\path\to\dsh-narrative-voice"
 ```
 
 包声明了 `dsh.bundle.patch`，`dsh plugin add` 会自动把它追加到 `dsh.profile.bundles` 成为一层 bundle。卸载：`dsh plugin --profile <profile> remove @dsh-user/narrative-voice`。
