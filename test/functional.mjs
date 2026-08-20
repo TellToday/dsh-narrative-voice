@@ -1,8 +1,7 @@
 // Isolated functional test for @dsh-user/narrative-voice.
 // Simulates the system-prompt/assemble waterfall call and the /voice command
-// against the real plugin module + real schemastery.
-// Run via `test/run-test.ps1` (creates a temporary schemastery junction,
-// runs this file, then removes the junction).
+// against the real plugin module (dependency-free — no schemastery involved).
+// Run directly: `node test/functional.mjs` (wrapped by test/run-test.ps1).
 import { apply, Config } from "../lib/index.js";
 
 let failures = 0;
@@ -79,7 +78,9 @@ const a1 = makeAssembly();
 await runAssemble(a1);
 const rewritten = qDesc(a1);
 check("description is rewritten (not equal original)", rewritten !== original, rewritten.slice(0, 60) + "…");
-check("rewrite embeds 方案B binding 我=answerer", rewritten.includes("我") && rewritten.includes("你"));
+check("rewrite embeds 我/你 pronouns", rewritten.includes("我") && rewritten.includes("你"));
+check("rewrite embeds both 我/你 and I/You", rewritten.includes('"我"') && rewritten.includes('"你"') && rewritten.includes('"I"') && rewritten.includes('"You"'));
+check("rule scopes to pronouns that actually appear (no forced 我/你)", rewritten.includes("does not naturally need them"));
 check("rewrite mentions the tool-only scope", rewritten.includes("this tool only"));
 check("other tool untouched", a1.tools[1].parameters.x.description === "untouched");
 check("rewrite keeps original purpose text", rewritten.startsWith(original));
@@ -123,7 +124,51 @@ apply(mockCtx, Config({ voice: "ai" }));
 const hook3 = listeners[listeners.length - 1];
 const a5 = makeAssembly();
 await hook3.cb(a5, {}, () => Promise.resolve(a5));
-check("方案A rewrite: 我=AI binding present", /"我" is the AI/.test(qDesc(a5)));
+check("方案A rewrite: 我=I=AI binding present", qDesc(a5).includes('"我"/"I" is the AI'), qDesc(a5).slice(0, 60) + "…");
+
+// --- 8. /voice user|ai switches the voice at runtime (command from the last apply) ---
+command.handler({ rawInput: "user" });
+const a6 = makeAssembly();
+await hook3.cb(a6, {}, () => Promise.resolve(a6));
+check("/voice user -> 方案B binding (我/I=answerer)", qDesc(a6).includes('"我"/"I" is the person answering'), qDesc(a6).slice(0, 60) + "…");
+command.handler({ rawInput: "ai" });
+const a7 = makeAssembly();
+await hook3.cb(a7, {}, () => Promise.resolve(a7));
+check("/voice ai -> 方案A binding (我/I=AI)", qDesc(a7).includes('"我"/"I" is the AI'), qDesc(a7).slice(0, 60) + "…");
+let r4 = command.handler({ rawInput: "" });
+check("/voice (no arg) shows voice + state", r4.kind === "success" && /scheme A/.test(r4.text) && /ON/.test(r4.text), r4.text);
+let r5 = command.handler({ rawInput: "user" });
+check("/voice user returns success", r5.kind === "success" && /scheme B/.test(r5.text), r5.text);
+
+// --- 9. Edge-case regression guards ---
+// Config rejects arrays / null, accepts undefined
+let cfgArrThrew = false;
+try { Config([]); } catch { cfgArrThrew = true; }
+check("Config([]) rejected (array is not a config)", cfgArrThrew);
+let cfgNullThrew = false;
+try { Config(null); } catch { cfgNullThrew = true; }
+check("Config(null) rejected", cfgNullThrew);
+check("Config(undefined) defaults to voice=user", Config(undefined).voice === "user");
+
+// /voice is case- and whitespace-insensitive; selecting a voice auto-enables
+apply(mockCtx, Config({ defaultActive: false, voice: "ai" }));
+const hook4 = listeners[listeners.length - 1];
+const cmd4 = command;
+cmd4.handler({ rawInput: "  USER  " });
+const a8 = makeAssembly();
+await hook4.cb(a8, {}, () => Promise.resolve(a8));
+check("/voice '  USER  ' (case+space) -> 方案B + auto-enable", qDesc(a8).includes('"我"/"I" is the person answering'), qDesc(a8).slice(0, 60) + "…");
+
+// malformed assemblies must not crash and must stay untouched
+const noQ = { tools: [{ name: "ask_user_question" }] };
+await hook4.cb(noQ, {}, () => Promise.resolve(noQ));
+check("tool without parameters -> no crash, untouched", JSON.stringify(noQ) === '{"tools":[{"name":"ask_user_question"}]}');
+const nonStr = { tools: [{ name: "ask_user_question", parameters: { properties: { questions: { description: 42 } } } }] };
+await hook4.cb(nonStr, {}, () => Promise.resolve(nonStr));
+check("non-string description -> no crash, untouched", nonStr.tools[0].parameters.properties.questions.description === 42);
+const noTools = {};
+await hook4.cb(noTools, {}, () => Promise.resolve(noTools));
+check("assembly without tools -> no crash", JSON.stringify(noTools) === "{}");
 
 console.log(failures === 0 ? "\nALL TESTS PASSED" : `\n${failures} TEST(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

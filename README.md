@@ -3,31 +3,41 @@
 **English** · [**中文版**](./README.zh-CN.md)
 
 A **DSH (DeepSeek Harness) bundle plugin** that keeps the `ask_user_question`
-tool's generated options free of pronoun drift. At prompt-assembly time it
-**rewrites** the tool's `questions.description` so the model composes every
-question, header, label, and description in a fixed narrative voice — no more
-labels written from the answerer's view while the description drifts to the
-AI's view (or leaks the word "用户").
+tool's generated questions and options **pronoun-consistent**. At
+prompt-assembly time it rewrites the tool's `questions.description` with a
+fixed narrative-voice rule, and you toggle it live with `/voice`.
 
-The rewrite is **live-toggled** with the `/voice` command — no restart, no HMR
-dependency (the web profile disables HMR anyway).
+## Why this plugin exists
 
-- **方案B (default, `voice: "user"`)** — the answerer narrates: "我" = the
-  person answering, "你" = the AI.
-- **方案A (`voice: "ai"`)** — the AI narrates: "我" = the AI, "你" = the person
-  answering.
+The `ask_user_question` tool asks the human a concise question with a few
+clickable options. Without a fixed rule, the model drifts pronouns *inside a
+single option*:
 
-## Features
+- a **label** written from the answerer's view ("我自己重启" — "我" = the
+  answerer) paired with a **description** written from the AI's view
+  ("我会指导你如何重启" — "我" = the AI);
+- the word **"用户"** leaking in ("…让你更省心"), third-personing the very
+  person who reads it.
 
-- Injects the rule **only inside the `ask_user_question` tool** — ordinary
-  replies and every other tool are never touched.
-- **Replaces** the description (the rule becomes part of one coherent sentence),
-  it does not append a detached appendix.
-- Applies to **every request** — including conversations already in progress
-  (the prompt is assembled per request, not frozen at conversation start).
-- **Dependency-free**: no runtime imports, no `node_modules` needed, no install
-  friction on any machine.
-- Live on/off via `/voice`, and the active voice is chosen at config time.
+One option, two different "我"s. The result is ambiguous and confusing: whose
+action is on offer? whose perspective is "我"?
+
+This plugin fixes it at the **prompt level**: it embeds a fixed
+narrative-voice rule into the tool's own description, so the model composes
+every question, header, label, and description in **one consistent voice**, and
+never calls the answerer "用户".
+
+## What it does
+
+- **方案B (default, `voice: "user"`)** — the answerer narrates: "我"/"I" = the
+  person answering, "你"/"You" = the AI.
+- **方案A (`voice: "ai"`)** — the AI narrates: "我"/"I" = the AI, "你"/"You" =
+  the person answering.
+
+The rule binds both **Chinese (我/你)** and **English (I/You)** pronouns,
+applies **only inside this tool** (ordinary replies and other tools are never
+touched), and only where such pronouns actually appear — it never forces
+我/你 into a question or option that does not naturally need them.
 
 ## How it works
 
@@ -37,56 +47,71 @@ model-facing prompt into an `assembly` object and dispatches it through the
 exactly what gets rendered and sent.
 
 This plugin registers a `global: true` listener on that waterfall. While
-enabled, it finds `ask_user_question` in `assembly.tools` and rewrites
+enabled, it finds `ask_user_question` in `assembly.tools` and **rewrites**
 `parameters.properties.questions.description` (the real assembled shape is
-JSON-Schema form) in place, then `return next()` lets the chain continue. Since
-the listener mutates the very object the waterfall passes through, the rewrite
-reaches the actual request.
+JSON-Schema form) in place, then `return next()` lets the chain continue. Only
+the per-request clone is touched — the registry schema and parameter validation
+are never polluted.
 
 Because `assemble()` runs per request, the `/voice` toggle takes effect from
-the next message in any conversation.
+the next message in any conversation — including ones already in progress.
 
 ## Install
 
-Requires `pnpm` on PATH.
+One command, straight from this GitHub repo (**verified**):
 
 ```powershell
-# clone the repo (or use your local copy)
-git clone https://github.com/TellToday/dsh-narrative-voice.git
-
-# install into a DSH profile as a bundle layer
-dsh plugin --profile <profile> add ./dsh-narrative-voice
-
-# restart the profile's process to mount the new bundle layer
+dsh plugin --profile <profile> add "github:TellToday/dsh-narrative-voice#main"
 ```
 
-> The local package is linked into the profile's `node_modules`; because
-> `package.json` declares `dsh.bundle.patch`, `dsh plugin add` automatically
-> appends it to `dsh.profile.bundles` as a bundle layer. Uninstall:
-> `dsh plugin --profile <profile> remove @dsh-user/narrative-voice`.
+- `#main` tracks the latest commit; pin a stable version with `#v0.6.0`.
+- Then **restart** the profile's process (for the web profile: `dsh web`).
+
+Alternatives, same effect:
+
+```powershell
+# full git URL
+dsh plugin --profile <profile> add "git+https://github.com/TellToday/dsh-narrative-voice.git"
+# or a local checkout (dev)
+dsh plugin --profile <profile> add "E:\path\to\dsh-narrative-voice"
+```
+
+The package declares `dsh.bundle.patch`, so `dsh plugin add` automatically
+appends it to `dsh.profile.bundles` as a bundle layer. Uninstall:
+`dsh plugin --profile <profile> remove @dsh-user/narrative-voice`.
+
+> Requires `pnpm` on PATH. Git-hosted installs clone the repo via your system
+> git (honoring your git proxy settings).
 
 ## Usage
 
-```text
-/voice on     enable the rewrite (effective from the next message)
-/voice off    disable it (the tool description is restored)
-/voice        show the current state
-```
+| Command | Effect |
+|---|---|
+| `/voice on` | enable the rewrite (effective from the next message) |
+| `/voice off` | disable it (the tool description is restored) |
+| `/voice user` | switch to 方案B (the answerer narrates) and enable |
+| `/voice ai` | switch to 方案A (the AI narrates) and enable |
+| `/voice` | show current state (on/off + active voice) |
 
 The command is handled host-side by the `commands` service (never by the
 model), so it works instantly — no HMR, no restart.
 
-## Configuration
+## Default configuration
 
-Override the row by id in the profile's patch file
-(`$DSH_HOME/profiles/<profile>/cordis.patch.yml`). The patch replaces the whole
-config, so list every key:
+| Key | Default | Meaning |
+|---|---|---|
+| `voice` | `user` (方案B) | which narrative scheme to use |
+| `defaultActive` | `true` | enabled right after install |
+
+To change the defaults (instead of using `/voice` at runtime), override the row
+by id in the profile's patch file `$DSH_HOME/profiles/<profile>/cordis.patch.yml`.
+The patch replaces the whole config, so list every key:
 
 ```yaml
 - id: narrative-voice
   config:
-    voice: user         # user (方案B: the answerer narrates) | ai (方案A: the AI narrates)
-    defaultActive: true # on by default after install; false = off until /voice on
+    voice: user          # user (方案B: the answerer narrates) | ai (方案A: the AI narrates)
+    defaultActive: true  # false = start disabled, until /voice on
 ```
 
 The config is validated by `Config` (a dependency-free Standard Schema
@@ -97,11 +122,12 @@ implementation): an invalid value fails the plugin load with a clear error.
 ```
 dsh-narrative-voice/
 ├── lib/index.js          # plugin body: Config, assemble listener, /voice command
-├── cordis.patch.yml      # bundle patch: inserts the row into the host plane
+├── cordis.patch.yml      # bundle patch: inserts the plugin row into the host plane
 ├── test/
-│   ├── functional.mjs    # isolated functional tests (24 assertions)
+│   ├── functional.mjs    # isolated functional tests (37 assertions)
 │   └── run-test.ps1      # runs the tests directly (no install, no junction)
 ├── package.json          # bundle metadata (dsh.bundle.patch; zero deps)
+├── LICENSE               # MIT
 └── README.md / README.zh-CN.md
 ```
 
